@@ -37,6 +37,7 @@
 #                              | Alias are only set for database if it is owned by the current user, or -u or -a is used
 #                              | Proper alias are now set when ASM is used
 #  3.3.7 |20180628 | JMONTEIRO | Changed agent home definition to support multiple homes
+#  3.3.8 |20190805 | JMONTEIRO | Include Support for Solaris SunOS
 #
 #  todo:
 #                              | Use /etc/oragchomelist to load agent definition
@@ -44,8 +45,8 @@
 SOURCE="${BASH_SOURCE[0]}" #JPS# the script is sourced so this have to be used instead of $0 below
 PROGNAME=`basename ${SOURCE}` 
 BASEDIR="$( dirname "$SOURCE" )"
-REVISION="3.3"
-LASTUPDATE="2018-06-28"
+REVISION="3.3.8"
+LASTUPDATE="2019-08-05"
 
 # Indirection Parameters
 export OSID=ORACLE_SID
@@ -96,18 +97,28 @@ print_banner() {
  echo "# Defined instances on the machine with the user -> ${_USER}          "
  echo "######################################################################"
  echo "#"
- ## Find and define ORATAB with its location
- if [[ -f /etc/oratab ]]; then
-  export ORATAB=/etc/oratab
+
+ if [[ ""`uname -s` = "SunOS" ]] ; then 
+   ORATAB=/var/opt/oracle/oratab
+   grep_extra_options=''
+   RUNNING=`ps -ef | sed 's/ *$//' | grep [p]mon | awk '{print $1 " " $9 }'`
  else
-  echo "### WARNING:    FILE oratab UNACESSIBLE OR UNEXISTANT"
+   ORATAB=/etc/oratab
+   grep_extra_options='-e'
+   RUNNING=`ps -ef | sed 's/ *$//' | grep [p]mon | awk '{print $1 " " $8 }'`
  fi
- 
+
+ ## Find and define ORATAB with its location
+ if [[ ! -f "$ORATAB" ]]; then
+   echo "### WARNING:    FILE oratab UNACESSIBLE OR UNEXISTANT ($ORATAB)"
+   unset ORATAB
+ fi
+
  if [[ ! -z "$ORATAB" ]]; then
  
  export ORALINE="" #global var
  
- RUNNING=`ps -ef | sed 's/ *$//' | grep [p]mon | awk '{print $1 " " $8 }'`
+ #RUNNING=`ps -ef | sed 's/ *$//' | grep [p]mon | awk '{print $1 " " $8 }'`
  #TABLINE=`cat /etc/oratab | grep -v "^#" | grep "\`grep -oP "\+ASM\K(\d)(?=.*)" $ORATAB\`:\/" | awk '/./' | awk -F":" '{print $1":"$2}' | sort -u`
   
  while read LINE
@@ -136,7 +147,7 @@ print_banner() {
            export ORALINE=${ORALINE}:${_ORA_SID} #save a list of SID for future validations
            ;;
     esac
- done < <(cat $ORATAB | grep -v "^#" | grep -v -e '^$' | grep -v "^[^+].*\# line added by Agent" | awk '/./' | awk -F":" '{print $1 " "$2}' | sort -u )
+ done < <(cat $ORATAB | grep -v "^#" | grep -v $grep_extra_options '^$' | grep -v "^[^+].*\# line added by Agent" | awk '/./' | awk -F":" '{print $1 " "$2}' | sort -u )
  # REMOVED: it will only print instances with the same instance number as the ASM instance on the oratab
  # REMOVED: head -1 above will prevent double entries of +ASM to mess with the list
  # "# line added by Agent" added to prevent db_name that end with a number to be consfused with instance_name, excluding the ASM instance (starts with +)
@@ -252,7 +263,6 @@ EOF`
 	_NLS_LANG=`echo ${_DB_INFO} | tr " " "\n" | grep "^_NLS_LANG" | awk -F= '{print $2}'`
 	_DIAGNOSTIC_DEST=`echo ${_DB_INFO} | tr " " "\n" | grep "^_DIAGNOSTIC_DEST" | awk -F= '{print $2}'`
 }
-
 # NLS_LANG can only be retrieved from the database
 set_nls_lang(){
 	if [[ -z ${_NLS_LANG} ]]; then
@@ -261,7 +271,6 @@ set_nls_lang(){
 		export NLS_LANG=${_NLS_LANG}
 	fi	
 }
-
 # DIAG_DEST is set according to database information
 # if unavailable we will assume it is ORACLE_BASE
 set_diag_dest(){
@@ -271,16 +280,13 @@ set_diag_dest(){
 		export DIAG_DEST=${_DIAGNOSTIC_DEST}
 	fi
 }
-
 init_set_env() {
  print_banner
  set_alias # this will work either if you call this script with ORACLE_SID or use . oraenv directly
  set_editor
 }
-
 #main(int argc, char *argv[]) #JPS# Start here
 _PARAMS=$@
-
 if [[ $# -eq 0 ]]; then
   init_set_env
 else
