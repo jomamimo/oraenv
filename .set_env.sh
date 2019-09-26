@@ -38,6 +38,7 @@
 #                              | Proper alias are now set when ASM is used
 #  3.3.7 |20180628 | JMONTEIRO | Changed agent home definition to support multiple homes
 #  3.3.8 |20190805 | JMONTEIRO | Include Support for Solaris SunOS
+#  3.3.9 |20190926 | JMONTEIRO | Include Support for NLS_LANG with Spaces like "ENGLISH_UNITED KINGDOM".AL32UTF8
 #
 #  todo:
 #                              | Use /etc/oragchomelist to load agent definition
@@ -45,8 +46,8 @@
 SOURCE="${BASH_SOURCE[0]}" #JPS# the script is sourced so this have to be used instead of $0 below
 PROGNAME=`basename ${SOURCE}` 
 BASEDIR="$( dirname "$SOURCE" )"
-REVISION="3.3.8"
-LASTUPDATE="2019-08-05"
+REVISION="3.3.9"
+LASTUPDATE="2019-09-26"
 
 # Indirection Parameters
 export OSID=ORACLE_SID
@@ -207,7 +208,8 @@ set_editor() {
  #export TMP=/dev/shm       # use ram instead of fs #JPS# commented out
  #export TMPDIR=/dev/shm    # use ram instead of fs #JPS# commented out
  export EDITOR=vi
- export PS1=`whoami`@`hostname`:'${ORACLE_SID}'['${PWD}']'$ '
+ #export PS1=`whoami`@`hostname`:'${ORACLE_SID}'['${PWD}']'$ '
+ export PS1=`whoami`@`hostname -s`:'${ORACLE_SID}'['${PWD}']'$ '
  export PS2='$ '
  export ORACLE_TERM=vt220
  export NLS_DATE_FORMAT='YYYY-MM-DD HH24:MI:SS'
@@ -256,11 +258,12 @@ get_db_information(){
 	_DB_INFO=`sqlplus -S -L / as sysdba <<EOF
 	set echo off ver off feedb off head off pages 0	
 	WHENEVER SQLERROR CONTINUE NONE;
-	select '_NLS_LANG='||a.value||'_'||b.value||'.'||c.value as nls_lang from nls_database_parameters a, nls_database_parameters b, nls_database_parameters c where 1=1 and a.parameter = 'NLS_LANGUAGE' and b.parameter = 'NLS_TERRITORY' and c.parameter = 'NLS_CHARACTERSET';
+	select '_NLS_LANG="'||a.value||'_'||b.value||'".'||c.value||'%' as nls_lang from nls_database_parameters a, nls_database_parameters b, nls_database_parameters c where 1=1 and a.parameter = 'NLS_LANGUAGE' and b.parameter = 'NLS_TERRITORY' and c.parameter = 'NLS_CHARACTERSET';
 	select '_DIAGNOSTIC_DEST='||p.value diagnostic_dest from v\\$parameter p where p.name='diagnostic_dest';
 	exit;
 EOF`
-	_NLS_LANG=`echo ${_DB_INFO} | tr " " "\n" | grep "^_NLS_LANG" | awk -F= '{print $2}'`
+#	_NLS_LANG=`echo ${_DB_INFO} | tr " " "\n" | grep "^_NLS_LANG" | awk -F= '{print $2}'`
+	_NLS_LANG=`echo ${_DB_INFO} | tr "%" "\n" | grep "^_NLS_LANG" | awk -F= '{print $2}'`
 	_DIAGNOSTIC_DEST=`echo ${_DB_INFO} | tr " " "\n" | grep "^_DIAGNOSTIC_DEST" | awk -F= '{print $2}'`
 }
 # NLS_LANG can only be retrieved from the database
