@@ -38,7 +38,8 @@
 #                              | Proper alias are now set when ASM is used
 #  3.3.7 |20180628 | JMONTEIRO | Changed agent home definition to support multiple homes
 #  3.3.8 |20190805 | JMONTEIRO | Include Support for Solaris SunOS
-#  3.3.9 |20190926 | JMONTEIRO | Include Support for NLS_LANG with Spaces like "ENGLISH_UNITED KINGDOM.AL32UTF8"
+#  3.3.9 |20190926 | JMONTEIRO | Include Support for NLS_LANG with Spaces like "ENGLISH_UNITED KINGDOM".AL32UTF8
+#  3.4.0 |20190926 | JMONTEIRO | Include Support for DB_UNIQUE_NAME different from Instance_Name + add alias pr (rman) and pk (ora_bck) 
 #
 #  todo:
 #                              | Use /etc/oragchomelist to load agent definition
@@ -46,11 +47,12 @@
 SOURCE="${BASH_SOURCE[0]}" #JPS# the script is sourced so this have to be used instead of $0 below
 PROGNAME=`basename ${SOURCE}` 
 BASEDIR="$( dirname "$SOURCE" )"
-REVISION="3.3.9"
+REVISION="3.4.0"
 LASTUPDATE="2019-09-26"
 
 # Indirection Parameters
 export OSID=ORACLE_SID
+export OUNQNAME=DB_UNIQUE_NAME
 export OBASE=ORACLE_BASE
 export OHOME=ORACLE_HOME
 export ODIAG=DIAG_DEST
@@ -178,23 +180,26 @@ set_sp() {
 }
 
 set_alias() {
- # DB
+##################### 
+# DB
  alias         sp=set_sp # sp will choose between sysasm or sysdba according to OSID
  alias spc='sqlplus -L -S / as sysdba @$1'
  alias      cdora='cd ${!OHOME}'
  alias        dbs='cd ${!OHOME}/dbs'
  alias        net='cd ${!OHOME}/network/admin'
  alias        adm='cd ${!ODIAG}/diag'
- alias      bdump='cd ${!ODIAG}/diag/`[[ ${!OSID} == *"+ASM"* ]] && echo "asm" || echo "rdbms"`/`echo ${!OSID%[0-9]} |tr '[:upper:]' '[:lower:]'`/${!OSID}/trace'
- alias      cdump='cd ${!ODIAG}/diag/`[[ ${!OSID} == *"+ASM"* ]] && echo "asm" || echo "rdbms"`/`echo ${!OSID%[0-9]} |tr '[:upper:]' '[:lower:]'`/${!OSID}/cdump'
- alias      udump='cd ${!ODIAG}/diag/`[[ ${!OSID} == *"+ASM"* ]] && echo "asm" || echo "rdbms"`/`echo ${!OSID%[0-9]} |tr '[:upper:]' '[:lower:]'`/${!OSID}/trace'
- alias      alert='vi ${!ODIAG}/diag/`[[ ${!OSID} == *"+ASM"* ]] && echo "asm" || echo "rdbms"`/`echo ${!OSID%[0-9]} |tr '[:upper:]' '[:lower:]'`/${!OSID}/trace/alert_${!OSID}.log'
- alias tail_alert='tail -50f ${!ODIAG}/diag/`[[ ${!OSID} == *"+ASM"* ]] && echo "asm" || echo "rdbms"`/`echo ${!OSID%[0-9]} |tr '[:upper:]' '[:lower:]'`/${!OSID}/trace/alert_${!OSID}.log'
+ alias      cdump='cd ${!ODIAG}/diag/`[[ ${!OSID} == *"+ASM"* ]] && echo "asm" || echo "rdbms"`/`[[ "${!OUNQNAME}" == "${DB_UNIQUE_NAME}" ]] && echo "${DB_UNIQUE_NAME}"|tr '[:upper:]' '[:lower:]' ||echo ${!OSID%[0-9]} |tr '[:upper:]' '[:lower:]'`/${!OSID}/cdump'
+ alias      bdump='cd ${!ODIAG}/diag/`[[ ${!OSID} == *"+ASM"* ]] && echo "asm" || echo "rdbms"`/`[[ "${!OUNQNAME}" == "${DB_UNIQUE_NAME}" ]] && echo "${DB_UNIQUE_NAME}"|tr '[:upper:]' '[:lower:]' ||echo ${!OSID%[0-9]} |tr '[:upper:]' '[:lower:]'`/${!OSID}/trace'
+ alias      udump='cd ${!ODIAG}/diag/`[[ ${!OSID} == *"+ASM"* ]] && echo "asm" || echo "rdbms"`/`[[ "${!OUNQNAME}" == "${DB_UNIQUE_NAME}" ]] && echo "${DB_UNIQUE_NAME}"|tr '[:upper:]' '[:lower:]' ||echo ${!OSID%[0-9]} |tr '[:upper:]' '[:lower:]'`/${!OSID}/trace'
+ alias      alert='vi ${!ODIAG}/diag/`[[ ${!OSID} == *"+ASM"* ]] && echo "asm" || echo "rdbms"`/`[[ "${!OUNQNAME}" == "${DB_UNIQUE_NAME}" ]] && echo "${DB_UNIQUE_NAME}"|tr '[:upper:]' '[:lower:]' ||echo ${!OSID%[0-9]} |tr '[:upper:]' '[:lower:]'`/${!OSID}/trace/alert_${!OSID}.log'
+ alias tail_alert='vi ${!ODIAG}/diag/`[[ ${!OSID} == *"+ASM"* ]] && echo "asm" || echo "rdbms"`/`[[ "${!OUNQNAME}" == "${DB_UNIQUE_NAME}" ]] && echo "${DB_UNIQUE_NAME}"|tr '[:upper:]' '[:lower:]' ||echo ${!OSID%[0-9]} |tr '[:upper:]' '[:lower:]'`/${!OSID}/trace/alert_${!OSID}.log'
  # SO
  alias   ll="ls -l"     #Simple ll
  alias   pp="ps -ef | grep [p]mon_ | sort -k8"
  alias   pl="ps -ef | grep [t]nslsnr | sort -k8"
  alias   po="ps -ef | grep [o]id"
+ alias   pr="ps -ef | grep [r]man"
+ alias   pk="ps -ef | grep [o]ra_bck"
  alias pall="echo DATABASES:; ps -ef | grep [p]mon_ | sort -k8; echo; echo LISTENERS:;ps -ef | grep [t]nslsnr | sort -k8; echo; echo AGENTS:; ps -ef | grep -i [d]bsnmp; ps -ef | grep -i [e]magent | grep -v java; echo; echo DATA GATHERERS:; ps -ef | grep -i [v]pp; echo"
  alias menu=". ${BASEDIR}/${PROGNAME} ${_PARAMS}" # keep the same parameters as the initial call
 }
@@ -236,6 +241,7 @@ set_env() {
  get_db_information ${_MY_SID}
  set_nls_lang
  set_diag_dest
+ set_alias_db_unique_name
 }
 
 set_agent_env() {
@@ -260,11 +266,13 @@ get_db_information(){
 	WHENEVER SQLERROR CONTINUE NONE;
 	select '_NLS_LANG='||a.value||'_'||b.value||'.'||c.value||'%' as nls_lang from nls_database_parameters a, nls_database_parameters b, nls_database_parameters c where 1=1 and a.parameter = 'NLS_LANGUAGE' and b.parameter = 'NLS_TERRITORY' and c.parameter = 'NLS_CHARACTERSET';
 	select '_DIAGNOSTIC_DEST='||p.value diagnostic_dest from v\\$parameter p where p.name='diagnostic_dest';
+	select '_DB_UNIQUE_NAME='||p.value db_unique_name from v\\$parameter p where p.name='db_unique_name';
 	exit;
 EOF`
 #	_NLS_LANG=`echo ${_DB_INFO} | tr " " "\n" | grep "^_NLS_LANG" | awk -F= '{print $2}'`
 	_NLS_LANG=`echo ${_DB_INFO} | tr "%" "\n" | grep "^_NLS_LANG" | awk -F= '{print $2}'`
 	_DIAGNOSTIC_DEST=`echo ${_DB_INFO} | tr " " "\n" | grep "^_DIAGNOSTIC_DEST" | awk -F= '{print $2}'`
+	_DB_UNIQUE_NAME=`echo ${_DB_INFO} | tr " " "\n" | grep "^_DB_UNIQUE_NAME" | awk -F= '{print $2}'`
 }
 # NLS_LANG can only be retrieved from the database
 set_nls_lang(){
@@ -283,6 +291,17 @@ set_diag_dest(){
 		export DIAG_DEST=${_DIAGNOSTIC_DEST}
 	fi
 }
+set_alias_db_unique_name (){
+        if [[ -z ${_DB_UNIQUE_NAME} ]]; then
+                unset  DB_UNIQUE_NAME
+                unset _DB_UNIQUE_NAME
+                set_alias
+        else
+                export DB_UNIQUE_NAME=${_DB_UNIQUE_NAME}
+                set_alias ${DB_UNIQUE_NAME}
+        fi
+}
+
 init_set_env() {
  print_banner
  set_alias # this will work either if you call this script with ORACLE_SID or use . oraenv directly
