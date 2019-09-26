@@ -38,7 +38,7 @@
 #                              | Proper alias are now set when ASM is used
 #  3.3.7 |20180628 | JMONTEIRO | Changed agent home definition to support multiple homes
 #  3.3.8 |20190805 | JMONTEIRO | Include Support for Solaris SunOS
-#  3.3.9 |20190926 | JMONTEIRO | Include Support for NLS_LANG with Spaces like "ENGLISH_UNITED KINGDOM".AL32UTF8
+#  3.3.9 |20190926 | JMONTEIRO | Include Support for NLS_LANG with Spaces like "ENGLISH_UNITED KINGDOM.AL32UTF8"
 #
 #  todo:
 #                              | Use /etc/oragchomelist to load agent definition
@@ -258,7 +258,7 @@ get_db_information(){
 	_DB_INFO=`sqlplus -S -L / as sysdba <<EOF
 	set echo off ver off feedb off head off pages 0	
 	WHENEVER SQLERROR CONTINUE NONE;
-	select '_NLS_LANG="'||a.value||'_'||b.value||'".'||c.value||'%' as nls_lang from nls_database_parameters a, nls_database_parameters b, nls_database_parameters c where 1=1 and a.parameter = 'NLS_LANGUAGE' and b.parameter = 'NLS_TERRITORY' and c.parameter = 'NLS_CHARACTERSET';
+	select '_NLS_LANG='||a.value||'_'||b.value||'.'||c.value||'%' as nls_lang from nls_database_parameters a, nls_database_parameters b, nls_database_parameters c where 1=1 and a.parameter = 'NLS_LANGUAGE' and b.parameter = 'NLS_TERRITORY' and c.parameter = 'NLS_CHARACTERSET';
 	select '_DIAGNOSTIC_DEST='||p.value diagnostic_dest from v\\$parameter p where p.name='diagnostic_dest';
 	exit;
 EOF`
